@@ -1,0 +1,14 @@
+[tool.mypy]
+allow_redefinition = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
