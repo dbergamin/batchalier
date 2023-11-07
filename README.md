@@ -57,51 +57,32 @@ Submitter
 ---------
 A Submitter will collect jobs until a maximum size or latency threshold is reached, at which point it will send the batch of Jobs upstream.
 
-Default implementation is the KafkaSubmitter which submits to a Kafka topic per priority and processor application, and waits for a BatchResult to arrive on a corresponding topic.
+It should have a processor to denote which application can receive the job. This allows Batchelier bus infrastructure to serve many applications.
 
-If the BatchResult is not received within the BatchTimeout interval, it will timeout all jobs within the batch as timeout, which will notify submitters that their jobs have failed and should be resubmitted.
+It should have a group to inform the application what data to expect on the job. For example, the URI stem would be a suitable choice for many webapps.
 
-Note well: the Processor will receive jobs at least once so jobs should be processed in an idempotent manner. The job handler must perform the necessary checks to verify the status of a job before taking action.
+
+If the JobResult is not received within the timeout interval, it will timeout and notify submitters that their jobs have failed and should be resubmitted. This avoids jobs stuck in processors that have claimed the job and then suffering critical failure.
+
+Note well: the Processor will receive jobs at-least once so jobs must be processed in an idempotent manner. The job handler must perform the necessary checks to verify the status of a job before taking action.
 
 Processor
 ---------
 A processor runs as part of an application that receives and processes jobs.
 
-It will receive an stream of jobs in priority order and pop the results on a message bus when complete.
+It will connect to the bus with a processor name and receive jobs submitted for that processor.
 
-Structs
--------
-*Job*
-```
-  Guid id: Unique id for the job
-  String processor: Arbitrary name, identifies job processor application so it can be picked up by the right app e.g. payments
-  String group: Arbitrary name identifies type of job so processor knows how to read the data e.g. store-payment
-  JobStatus status: Status of the job
-  Object data: Arbitrary data. A processor must know the JobGroup to read this data and process the job. E.g. a HTTP post object
-```
+It must be aware of the job group to interpret the data and handle the job.
 
-*JobStatus* (enum)
-```
-  NEW: State upon job instantiation, not yet submitted for batching
-  SUBMITTED: Submitted (may be awaiting batching), awaiting result
-  PROCESSED_OK: Processed successfully
-  PROCESSED_ERROR: Processed but failed due to an error in the processor
-  BATCH_FAILED: Batching issue, check the batch for more information
-```
+It receives an stream of jobs in priority order and pops the results on the message bus when complete.
 
-*BatchPriority* (enum)
-```
-  REALTIME: Submit immediately in a batch of one. Processed first.
-  NORMAL: Will be processed when there are no realtime batches to complete.
-  SLOW: Subject to batching and will be processed when there are no realtime or normal batches to complete.
-```
+Bus
+---
+The bus is a third party system that bridges submitters and processors.
 
-*JobResult*
-```
-  Guid job_id
-  JobStatus status
-  Object data
-```
+The chosen bus should be highly available infrastructure that is well understood by the hosting team.
+
+The default bus implementation uses Kafka as it is a natural fit for this use case. Jobs are submitted to a Kafka topic per priority and processor application, and JobResults arrive on a corresponding topic. Batchalier should select sensible conventions for topic naming and retention.
 
 Sample Code
 ===========
